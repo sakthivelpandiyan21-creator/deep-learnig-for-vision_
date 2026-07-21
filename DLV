@@ -1,0 +1,47 @@
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+from skimage.feature import graycomatrix, graycoprops
+
+# 1. Load and Preprocess Image
+image = cv2.imread('image.jpg')
+
+# Check if image was loaded successfully
+if image is None:
+    raise ValueError("Error: Could not load 'image.jpg'. Please ensure the file exists, is not corrupted, and is in a format OpenCV can read.")
+
+gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+
+# 2. Feature Extraction: Edges (Canny Edge Detector)
+edges = cv2.Canny(blurred, 50, 150)
+
+# 3. Feature Extraction: Corners (Harris Corner Detector)
+gray_float = np.float32(gray)
+dst = cv2.cornerHarris(gray_float, blockSize=2, ksize=3, k=0.04)
+dst_norm = cv2.dilate(dst, None)
+corner_image = image.copy()
+corner_image[dst_norm > 0.01 * dst_norm.max()] = [0, 0, 255] # Mark corners in Red
+
+# 4. Feature Representation: Texture (Gray-Level Co-occurrence Matrix - GLCM)
+# Calculate GLCM: distance=1, angles=[0, pi/4, pi/2, 3pi/4]
+glcm = graycomatrix(gray, distances=[1], angles=[0, np.pi/4, np.pi/2, 3*np.pi/4],
+                    levels=256, symmetric=True, normed=True)
+
+# Extract Texture Features (Contrast and Energy)
+contrast = graycoprops(glcm, 'contrast').mean()
+energy = graycoprops(glcm, 'energy').mean()
+print(f"GLCM Features - Contrast: {contrast:.2f}, Energy: {energy:.2f}")
+
+# 5. Visualization using Matplotlib
+plt.figure(figsize=(15, 5))
+plt.subplot(1, 3, 1), plt.imshow(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+plt.title('Original Image'), plt.axis('off')
+
+plt.subplot(1, 3, 2), plt.imshow(edges, cmap='gray')
+plt.title('Edge Features (Canny)'), plt.axis('off')
+
+plt.subplot(1, 3, 3), plt.imshow(cv2.cvtColor(corner_image, cv2.COLOR_BGR2RGB))
+plt.title('Corner Features (Harris)'), plt.axis('off')
+
+plt.show()
